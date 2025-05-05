@@ -136,6 +136,7 @@ void A_input(struct pkt packet)
             acked[packet.acknum] = 1;  //Confirm that the packet has been acked
             
             while(windowcount > 0 && acked[buffer[windowfirst].seqnum]) {
+              acked[buffer[windowfirst].seqnum] = 0;
               windowfirst = (windowfirst + 1) % WINDOWSIZE;
               windowcount--;
             } /* Slide the window during Ack */
@@ -234,7 +235,10 @@ void B_input(struct pkt packet)
   }
 
   /* create packet */
-  sendpkt.acknum = packet.seqnum;  /* send the ack to the sender */
+  if (expectedseqnum == 0)
+    sendpkt.acknum = SEQSPACE - 1;
+  else
+    sendpkt.acknum = expectedseqnum - 1;  /* send the ack to the sender */
   sendpkt.seqnum = B_nextseqnum;
   B_nextseqnum = (B_nextseqnum + 1) % 2;
     
