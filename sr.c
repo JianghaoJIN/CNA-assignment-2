@@ -165,6 +165,8 @@ void A_timerinterrupt(void)
     printf("----A: time out,resend packets!\n");
 
   if (windowcount > 0) {
+    printf("---A: resending packet %d\n", buffer[windowfirst].seqnum); /* Print the packet that is being resent */
+
     tolayer3(A, buffer[windowfirst]);
     packets_resent++;
     starttimer(A, RTT);
