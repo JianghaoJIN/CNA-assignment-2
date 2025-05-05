@@ -159,7 +159,7 @@ void A_input(struct pkt packet)
 /* called when A's timer goes off */
 void A_timerinterrupt(void)
 {
-  int i;
+
 
   if (TRACE > 0)
     printf("----A: time out,resend packets!\n");
@@ -199,7 +199,7 @@ static int received[SEQSPACE];
 static struct pkt recv_buffer[SEQSPACE];   
 /*Add caches and Windows
 
-/* called from layer 3, when a packet arrives for layer 4 at B*/
+/* called from layer 3, when a packet arrives for layer 4 at B */
 void B_input(struct pkt packet)
 {
   struct pkt sendpkt;
@@ -223,7 +223,7 @@ void B_input(struct pkt packet)
         packets_received++;
       }   /* Cache package */
     } else {
-      if (TRACE > 0)
+      if (TRACE > 2)
         printf("----B: packet %d is out of window, discarded\n", packet.seqnum);
     }
   } else {
