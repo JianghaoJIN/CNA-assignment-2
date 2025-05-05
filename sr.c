@@ -83,6 +83,7 @@ void A_output(struct msg message)
     /* windowlast will always be 0 for alternating bit; but not for GoBackN */
     windowlast = (windowlast + 1) % WINDOWSIZE; 
     buffer[windowlast] = sendpkt;
+    acked[sendpkt.seqnum] = 0;  // reset the acked 
     windowcount++;
 
     /* send out packet */
@@ -135,7 +136,10 @@ void A_input(struct pkt packet)
             
             acked[packet.acknum] = 1;  //Confirm that the packet has been acked
             
-            
+            while(windowcount > 0 && acked[buffer[windowfirst].seqnum]) {
+              windowfirst = (windowfirst + 1) % WINDOWSIZE;
+              windowcount--;
+            } // Slide the window during Ack
 
 	    /* start timer again if there are still more unacked packets in window */
             stoptimer(A);
@@ -161,15 +165,11 @@ void A_timerinterrupt(void)
   if (TRACE > 0)
     printf("----A: time out,resend packets!\n");
 
-  for(i=0; i<windowcount; i++) {
-
-    if (TRACE > 0)
-      printf ("---A: resending packet %d\n", (buffer[(windowfirst+i) % WINDOWSIZE]).seqnum);
-
-    tolayer3(A,buffer[(windowfirst+i) % WINDOWSIZE]);
+  if (windowcount > 0) {
+    tolayer3(A, buffer[windowfirst]);
     packets_resent++;
-    if (i==0) starttimer(A,RTT);
-  }
+    starttimer(A, RTT);
+  }  // Resend the first packet that was not Acked
 }       
 
 
@@ -186,6 +186,8 @@ void A_init(void)
 		     so initially this is set to -1
 		   */
   windowcount = 0;
+  for (int i = 0; i < SEQSPACE; i++) 
+    acked[i] = 0;     // Initialize the ack state
 }
 
 
@@ -194,7 +196,9 @@ void A_init(void)
 
 static int expectedseqnum; /* the sequence number expected next by the receiver */
 static int B_nextseqnum;   /* the sequence number for the next packets sent by B */
-
+static int received[SEQSPACE];  
+static struct pkt buffer[SEQSPACE];   
+//Add caches and Windows
 
 /* called from layer 3, when a packet arrives for layer 4 at B*/
 void B_input(struct pkt packet)
@@ -228,6 +232,7 @@ void B_input(struct pkt packet)
   }
 
   /* create packet */
+  sendpkt.acknum = packet.seqnum;  // send the ack to the sender
   sendpkt.seqnum = B_nextseqnum;
   B_nextseqnum = (B_nextseqnum + 1) % 2;
     
@@ -248,6 +253,8 @@ void B_init(void)
 {
   expectedseqnum = 0;
   B_nextseqnum = 1;
+  for (int i = 0; i < SEQSPACE; i++)
+    received[i] = 0;  //  Initialize the array
 }
 
 /******************************************************************************
