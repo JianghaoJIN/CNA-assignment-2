@@ -83,7 +83,7 @@ void A_output(struct msg message)
     /* windowlast will always be 0 for alternating bit; but not for GoBackN */
     windowlast = (windowlast + 1) % WINDOWSIZE; 
     buffer[windowlast] = sendpkt;
-    acked[sendpkt.seqnum] = 0;  // reset the acked 
+    acked[sendpkt.seqnum] = 0;  /* reset the acked */
     windowcount++;
 
     /* send out packet */
@@ -112,8 +112,7 @@ void A_output(struct msg message)
 */
 void A_input(struct pkt packet)
 {
-  int ackcount = 0;
-  int i;
+  
 
   /* if received ACK is not corrupted */ 
   if (!IsCorrupted(packet)) {
@@ -139,7 +138,7 @@ void A_input(struct pkt packet)
             while(windowcount > 0 && acked[buffer[windowfirst].seqnum]) {
               windowfirst = (windowfirst + 1) % WINDOWSIZE;
               windowcount--;
-            } // Slide the window during Ack
+            } /* Slide the window during Ack */
 
 	    /* start timer again if there are still more unacked packets in window */
             stoptimer(A);
@@ -169,7 +168,7 @@ void A_timerinterrupt(void)
     tolayer3(A, buffer[windowfirst]);
     packets_resent++;
     starttimer(A, RTT);
-  }  // Resend the first packet that was not Acked
+  }  /* Resend the first packet that was not Acked */
 }       
 
 
@@ -187,7 +186,7 @@ void A_init(void)
 		   */
   windowcount = 0;
   for (int i = 0; i < SEQSPACE; i++) 
-    acked[i] = 0;     // Initialize the ack state
+    acked[i] = 0;     /* Initialize the ack state */
 }
 
 
@@ -197,8 +196,8 @@ void A_init(void)
 static int expectedseqnum; /* the sequence number expected next by the receiver */
 static int B_nextseqnum;   /* the sequence number for the next packets sent by B */
 static int received[SEQSPACE];  
-static struct pkt buffer[SEQSPACE];   
-//Add caches and Windows
+static struct pkt recv_buffer[SEQSPACE];   
+/*Add caches and Windows
 
 /* called from layer 3, when a packet arrives for layer 4 at B*/
 void B_input(struct pkt packet)
@@ -209,30 +208,31 @@ void B_input(struct pkt packet)
   /* if not corrupted and received packet is in order */
   if  ( (!IsCorrupted(packet))  && (packet.seqnum == expectedseqnum) ) {
     if (TRACE > 0)
-      printf("----B: packet %d is correctly received, send ACK!\n",packet.seqnum);
-    packets_received++;
+      printf("----B: packet %d is correctly received, send ACK!\n",packet.seqnum); //Check whether the packet is damaged
+    
+    if (((packet.seqnum - expectedseqnum + SEQSPACE) % SEQSPACE) < WINDOWSIZE) {
+      if (!received[packet.seqnum]) {
+        recv_buffer[packet.seqnum] = packet;
+        received[packet.seqnum] = 1;
+      } /* Determine whether the packet is in the window */
 
-    /* deliver to receiving application */
-    tolayer5(B, packet.payload);
-
-    /* send an ACK for the received packet */
-    sendpkt.acknum = expectedseqnum;
-
-    /* update state variables */
-    expectedseqnum = (expectedseqnum + 1) % SEQSPACE;        
-  }
-  else {
-    /* packet is corrupted or out of order resend last ACK */
-    if (TRACE > 0) 
-      printf("----B: packet corrupted or not expected sequence number, resend ACK!\n");
-    if (expectedseqnum == 0)
-      sendpkt.acknum = SEQSPACE - 1;
-    else
-      sendpkt.acknum = expectedseqnum - 1;
+      while (received[expectedseqnum]) {
+        tolayer5(B, recv_buffer[expectedseqnum].payload);/* deliver to receiving application */
+        received[expectedseqnum] = 0;
+        expectedseqnum = (expectedseqnum + 1) % SEQSPACE;
+        packets_received++;
+      }   /* Cache package */
+    } else {
+      if (TRACE > 0)
+        printf("----B: packet %d is out of window, discarded\n", packet.seqnum);
+    }
+  } else {
+    if (TRACE > 0)
+      printf("----B: packet corrupted, resend ACK!\n");
   }
 
   /* create packet */
-  sendpkt.acknum = packet.seqnum;  // send the ack to the sender
+  sendpkt.acknum = packet.seqnum;  /* send the ack to the sender */
   sendpkt.seqnum = B_nextseqnum;
   B_nextseqnum = (B_nextseqnum + 1) % 2;
     
@@ -254,7 +254,7 @@ void B_init(void)
   expectedseqnum = 0;
   B_nextseqnum = 1;
   for (int i = 0; i < SEQSPACE; i++)
-    received[i] = 0;  //  Initialize the array
+    received[i] = 0;  /* Initialize the array */
 }
 
 /******************************************************************************
